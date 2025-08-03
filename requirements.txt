@@ -1,0 +1,10 @@
+# Core dependencies
+langchain-openai>=0.1.0
+langchain-core>=0.2.0
+python-dotenv>=1.0.0
+
+# Manim for video generation
+manim>=0.18.0
+
+# Additional utilities
+typing-extensions>=4.0.0 

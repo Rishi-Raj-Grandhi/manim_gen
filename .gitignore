@@ -1,0 +1,9 @@
+node_modules/
+.env
+.env.*
+__pycache__/
+*.pyc
+static/
+audio/
+*.mp4
+*.log
