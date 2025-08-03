@@ -146,8 +146,8 @@ graph = builder.compile()
 if __name__ == "__main__":
     try:
         user_prompt = """
-give a reactangle illustrate its length breadth  
-display area is equal to length * breadth 
+Generate Python code using the Manim library to animate two balls (one red and one blue) moving toward each other from opposite sides of the screen. When they collide at the center, apply a squash and stretch effect to simulate impact. Then make them bounce slightly backward. Use 2D animation and basic shapes. Output only valid Manim code.
+ 
 """
         result = graph.invoke({ "prompt": user_prompt })
         print("\n✅ Final Result (JSON):")

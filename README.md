@@ -1,1 +1,14 @@
- 
+ # Python
+__pycache__/
+*.pyc
+*.pyo
+.env
+
+# Node
+node_modules/
+dist/
+.vite/
+
+# OS files
+.DS_Store
+Thumbs.db
