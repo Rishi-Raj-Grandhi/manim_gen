@@ -33,7 +33,9 @@ function App() {
   const fetchVideos = async () => {
     try {
       setLoading(true)
-      const response = await axios.get(`${API_BASE_URL}/api/videos`)
+      // Add cache-busting parameter to ensure fresh data
+      const timestamp = Date.now()
+      const response = await axios.get(`${API_BASE_URL}/api/videos?t=${timestamp}`)
       setVideos(response.data)
       setError(null)
     } catch (err) {
@@ -68,13 +70,28 @@ function App() {
         }
       })
 
+      const generatedFilename = response.data.generated_filename
       setGenerationStatus(`✅ Video generated successfully! Code length: ${response.data.code_length} characters. Refreshing...`)
       
-      // Wait a moment then refresh the video list
-      setTimeout(() => {
-        fetchVideos()
-        setGenerationStatus('')
+      // Wait a moment then refresh the video list and select the new video
+      setTimeout(async () => {
+        await fetchVideos()
+        
+        // Find and select the newly generated video
+        const newVideo = videos.find(video => video.name === generatedFilename)
+        if (newVideo) {
+          setSelectedVideo(newVideo)
+          setGenerationStatus(`🎬 New video "${generatedFilename}" is now playing!`)
+        } else {
+          setGenerationStatus('✅ Video generated! Check the recent videos list.')
+        }
+        
         setPrompt('')
+        
+        // Clear status after 5 seconds
+        setTimeout(() => {
+          setGenerationStatus('')
+        }, 5000)
       }, 2000)
 
     } catch (err) {
@@ -195,18 +212,18 @@ function App() {
                     onClick={() => handleVideoSelect(video)}
                   >
                     <div className="video-thumbnail-compact">
-                      <video
-                        src={`${API_BASE_URL}${video.url}`}
-                        muted
-                        onLoadedMetadata={(e) => {
-                          const canvas = document.createElement('canvas')
-                          canvas.width = e.target.videoWidth
-                          canvas.height = e.target.videoHeight
-                          const ctx = canvas.getContext('2d')
-                          ctx.drawImage(e.target, 0, 0)
-                          e.target.style.display = 'none'
-                        }}
-                      />
+                                          <video
+                      src={`${API_BASE_URL}${video.url}?t=${Date.now()}`}
+                      muted
+                      onLoadedMetadata={(e) => {
+                        const canvas = document.createElement('canvas')
+                        canvas.width = e.target.videoWidth
+                        canvas.height = e.target.videoHeight
+                        const ctx = canvas.getContext('2d')
+                        ctx.drawImage(e.target, 0, 0)
+                        e.target.style.display = 'none'
+                      }}
+                    />
                       <div className="play-overlay-compact">▶</div>
                     </div>
                     <div className="video-info-compact">
@@ -232,8 +249,9 @@ function App() {
                   onPlay={() => setIsPlaying(true)}
                   onPause={() => setIsPlaying(false)}
                   className="main-video"
+                  key={`${selectedVideo.name}-${Date.now()}`}
                 >
-                  <source src={`${API_BASE_URL}${selectedVideo.url}`} type="video/mp4" />
+                  <source src={`${API_BASE_URL}${selectedVideo.url}?t=${Date.now()}`} type="video/mp4" />
                   Your browser does not support the video tag.
                 </video>
               </div>

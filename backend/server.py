@@ -112,11 +112,17 @@ async def generate_video(request: VideoGenerationRequest):
         print(f"✅ Video generation completed successfully")
         print(f"📝 Generated code length: {len(result.get('code', ''))} characters")
         
+        # Get the generated filename
+        generated_filename = result.get('generated_filename', 'output.mp4')
+        print(f"📹 Generated video file: {generated_filename}")
+        
         return {
             "status": "success",
             "message": "Video generated successfully",
             "prompt": request.prompt,
             "code_length": len(result.get('code', '')),
+            "generated_filename": generated_filename,
+            "video_url": f"/media/videos/generated_scene/720p30/{generated_filename}",
             "result": result
         }
     except Exception as e:

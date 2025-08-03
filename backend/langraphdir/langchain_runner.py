@@ -64,6 +64,9 @@ def render_node(state):
 
     # Get the backend directory path
     import os
+    import time
+    from datetime import datetime
+    
     backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     media_dir = os.path.join(backend_dir, "media", "videos", "generated_scene", "720p30")
     
@@ -74,8 +77,13 @@ def render_node(state):
     os.makedirs(media_dir, exist_ok=True)
     print(f"✅ Media directory created/exists: {os.path.exists(media_dir)}")
     
+    # Generate unique filename based on timestamp and prompt
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    prompt_hash = str(hash(state["prompt"]))[-8:]  # Last 8 chars of hash
+    unique_filename = f"video_{timestamp}_{prompt_hash}"
+    
     # Save to file with UTF-8 encoding in the media directory
-    scene_file = os.path.join(media_dir, "generated_scene.py")
+    scene_file = os.path.join(media_dir, f"{unique_filename}.py")
     with open(scene_file, "w", encoding="utf-8") as f:
         f.write(code)
     
@@ -85,18 +93,22 @@ def render_node(state):
     print(f"🎬 Running Manim render attempt {retry_count + 1}")
     print(f"📁 Working directory: {media_dir}")
 
-    # Run Manim from the media directory
-    cmd = ["manim", scene_file, "Scene", "-qm", "-o", "output.mp4"]
+    # Run Manim from the media directory with unique output name
+    output_filename = f"{unique_filename}.mp4"
+    cmd = ["manim", scene_file, "Scene", "-qm", "-o", output_filename]
     print(f"🚀 Running command: {' '.join(cmd)}")
     result = subprocess.run(cmd, capture_output=True, text=True, cwd=media_dir)
 
     if result.returncode == 0:
         print("✅ Rendered successfully")
-        output_file = os.path.join(media_dir, "output.mp4")
+        output_file = os.path.join(media_dir, output_filename)
         print(f"📹 Output file: {output_file}")
         print(f"📄 Output file exists: {os.path.exists(output_file)}")
         if os.path.exists(output_file):
             print(f"📊 File size: {os.path.getsize(output_file)} bytes")
+        
+        # Store the generated filename in state
+        state["generated_filename"] = output_filename
         state["status"] = "success"
         return state
 
