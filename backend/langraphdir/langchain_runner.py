@@ -62,18 +62,41 @@ def render_node(state):
     code = state["verified_code"]
     retry_count = state.get("retry_count", 0)
 
-    # Save to file with UTF-8 encoding
-    with open("generated_scene.py", "w", encoding="utf-8") as f:
+    # Get the backend directory path
+    import os
+    backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    media_dir = os.path.join(backend_dir, "media", "videos", "generated_scene", "720p30")
+    
+    print(f"🔍 Backend directory: {backend_dir}")
+    print(f"📁 Media directory: {media_dir}")
+    
+    # Create media directory if it doesn't exist
+    os.makedirs(media_dir, exist_ok=True)
+    print(f"✅ Media directory created/exists: {os.path.exists(media_dir)}")
+    
+    # Save to file with UTF-8 encoding in the media directory
+    scene_file = os.path.join(media_dir, "generated_scene.py")
+    with open(scene_file, "w", encoding="utf-8") as f:
         f.write(code)
+    
+    print(f"💾 Scene file saved to: {scene_file}")
+    print(f"📄 File exists: {os.path.exists(scene_file)}")
 
     print(f"🎬 Running Manim render attempt {retry_count + 1}")
+    print(f"📁 Working directory: {media_dir}")
 
-    # Run Manim
-    cmd = ["manim", "generated_scene.py", "Scene", "-qm", "-o", "output.mp4"]
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    # Run Manim from the media directory
+    cmd = ["manim", scene_file, "Scene", "-qm", "-o", "output.mp4"]
+    print(f"🚀 Running command: {' '.join(cmd)}")
+    result = subprocess.run(cmd, capture_output=True, text=True, cwd=media_dir)
 
     if result.returncode == 0:
         print("✅ Rendered successfully")
+        output_file = os.path.join(media_dir, "output.mp4")
+        print(f"📹 Output file: {output_file}")
+        print(f"📄 Output file exists: {os.path.exists(output_file)}")
+        if os.path.exists(output_file):
+            print(f"📊 File size: {os.path.getsize(output_file)} bytes")
         state["status"] = "success"
         return state
 
@@ -143,16 +166,16 @@ graph = builder.compile()
 
 # Step 6: Example usage
 # Step 6: Example usage
-if __name__ == "__main__":
-    try:
-        user_prompt = """
-Generate Python code using the Manim library to animate two balls (one red and one blue) moving toward each other from opposite sides of the screen. When they collide at the center, apply a squash and stretch effect to simulate impact. Then make them bounce slightly backward. Use 2D animation and basic shapes. Output only valid Manim code.
+# if __name__ == "__main__":
+#     try:
+#         user_prompt = """
+# Generate Python code using the Manim library to animate two balls (one red and one blue) moving toward each other from opposite sides of the screen. When they collide at the center, apply a squash and stretch effect to simulate impact. Then make them bounce slightly backward. Use 2D animation and basic shapes. Output only valid Manim code.
  
-"""
-        result = graph.invoke({ "prompt": user_prompt })
-        print("\n✅ Final Result (JSON):")
-        print(result)
+# """
+#         result = graph.invoke({ "prompt": user_prompt })
+#         print("\n✅ Final Result (JSON):")
+#         print(result)
 
-    except Exception as e:
-        print(f"\n❌ Pipeline failed: {e}")
+#     except Exception as e:
+#         print(f"\n❌ Pipeline failed: {e}")
 
