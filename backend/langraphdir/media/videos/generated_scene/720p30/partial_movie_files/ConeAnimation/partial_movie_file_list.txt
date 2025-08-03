@@ -1,5 +1,0 @@
-# This file is used internally by FFMPEG.
-file 'file:E:/manim_gen/backend/langraphdir/media/videos/generated_scene/720p30/partial_movie_files/ConeAnimation/2016333726_4192268223_223132457.mp4'
-file 'file:E:/manim_gen/backend/langraphdir/media/videos/generated_scene/720p30/partial_movie_files/ConeAnimation/543634251_3890345977_2797210217.mp4'
-file 'file:E:/manim_gen/backend/langraphdir/media/videos/generated_scene/720p30/partial_movie_files/ConeAnimation/543634251_3008643831_954727901.mp4'
-file 'file:E:/manim_gen/backend/langraphdir/media/videos/generated_scene/720p30/partial_movie_files/ConeAnimation/543634251_3890345977_3852322329.mp4'

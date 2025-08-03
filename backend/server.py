@@ -44,6 +44,9 @@ async def get_videos():
     """Get list of all available videos"""
     videos_dir = media_path / "videos" / "generated_scene" / "720p30"
     
+    # Also check the nested media directory where Manim actually saves videos
+    nested_videos_dir = videos_dir / "media" / "videos"
+    
     try:
         print(f"🔍 Looking for videos in: {videos_dir}")
         print(f"📁 Directory exists: {videos_dir.exists()}")
@@ -53,6 +56,8 @@ async def get_videos():
             return []
         
         video_files = []
+        
+        # Check main videos directory
         for file in videos_dir.iterdir():
             if file.is_file() and file.suffix.lower() in ['.mp4', '.avi', '.mov']:
                 stat = file.stat()
@@ -66,6 +71,25 @@ async def get_videos():
                 video_files.append(video_info)
                 print(f"📹 Found video: {file.name} ({stat.st_size} bytes)")
         
+        # Check nested media directory (where Manim actually saves)
+        if nested_videos_dir.exists():
+            for video_folder in nested_videos_dir.iterdir():
+                if video_folder.is_dir():
+                    nested_720p30_dir = video_folder / "720p30"
+                    if nested_720p30_dir.exists():
+                        for file in nested_720p30_dir.iterdir():
+                            if file.is_file() and file.suffix.lower() in ['.mp4', '.avi', '.mov']:
+                                stat = file.stat()
+                                video_info = {
+                                    "name": file.name,
+                                    "url": f"/media/videos/generated_scene/720p30/media/videos/{video_folder.name}/720p30/{file.name}",
+                                    "size": stat.st_size,
+                                    "created": datetime.fromtimestamp(stat.st_ctime).isoformat(),
+                                    "modified": datetime.fromtimestamp(stat.st_mtime).isoformat()
+                                }
+                                video_files.append(video_info)
+                                print(f"📹 Found nested video: {file.name} ({stat.st_size} bytes)")
+        
         print(f"🎬 Total videos found: {len(video_files)}")
         return video_files
     except Exception as e:
@@ -76,16 +100,37 @@ async def get_videos():
 @app.get("/api/videos/{filename}")
 async def get_video_info(filename: str):
     """Get information about a specific video"""
+    # Check main videos directory
     video_path = media_path / "videos" / "generated_scene" / "720p30" / filename
+    
+    # If not found in main directory, check nested media directory
+    if not video_path.exists():
+        nested_videos_dir = media_path / "videos" / "generated_scene" / "720p30" / "media" / "videos"
+        if nested_videos_dir.exists():
+            for video_folder in nested_videos_dir.iterdir():
+                if video_folder.is_dir():
+                    nested_video_path = video_folder / "720p30" / filename
+                    if nested_video_path.exists():
+                        video_path = nested_video_path
+                        break
     
     try:
         if not video_path.exists():
             raise HTTPException(status_code=404, detail="Video not found")
         
         stat = video_path.stat()
+        # Determine the correct URL based on where the video was found
+        if "media/videos" in str(video_path):
+            # Video is in nested structure
+            video_folder_name = video_path.parent.parent.name
+            url = f"/media/videos/generated_scene/720p30/media/videos/{video_folder_name}/720p30/{filename}"
+        else:
+            # Video is in main directory
+            url = f"/media/videos/generated_scene/720p30/{filename}"
+        
         return {
             "name": filename,
-            "url": f"/media/videos/generated_scene/720p30/{filename}",
+            "url": url,
             "size": stat.st_size,
             "created": datetime.fromtimestamp(stat.st_ctime).isoformat(),
             "modified": datetime.fromtimestamp(stat.st_mtime).isoformat()
@@ -116,15 +161,43 @@ async def generate_video(request: VideoGenerationRequest):
         generated_filename = result.get('generated_filename', 'output.mp4')
         print(f"📹 Generated video file: {generated_filename}")
         
+        # Verify the video file exists and get correct path
+        video_path = media_path / "videos" / "generated_scene" / "720p30" / generated_filename
+        
+        # Check if video is in nested structure
+        if not video_path.exists():
+            nested_videos_dir = media_path / "videos" / "generated_scene" / "720p30" / "media" / "videos"
+            if nested_videos_dir.exists():
+                for video_folder in nested_videos_dir.iterdir():
+                    if video_folder.is_dir():
+                        nested_video_path = video_folder / "720p30" / generated_filename
+                        if nested_video_path.exists():
+                            video_path = nested_video_path
+                            video_url = f"/media/videos/generated_scene/720p30/media/videos/{video_folder.name}/720p30/{generated_filename}"
+                            print(f"✅ Video found in nested structure: {video_path}")
+                            break
+                else:
+                    print(f"⚠️  Warning: Video file not found at {video_path}")
+                    video_url = f"/media/videos/generated_scene/720p30/{generated_filename}"
+            else:
+                print(f"⚠️  Warning: Video file not found at {video_path}")
+                video_url = f"/media/videos/generated_scene/720p30/{generated_filename}"
+        else:
+            video_url = f"/media/videos/generated_scene/720p30/{generated_filename}"
+            print(f"✅ Video found in main directory: {video_path}")
+        
         return {
             "status": "success",
             "message": "Video generated successfully",
             "prompt": request.prompt,
             "code_length": len(result.get('code', '')),
             "generated_filename": generated_filename,
-            "video_url": f"/media/videos/generated_scene/720p30/{generated_filename}",
+            "video_url": video_url,
             "result": result
         }
+    except ImportError as e:
+        print(f"❌ Import error: {str(e)}")
+        raise HTTPException(status_code=500, detail="LangGraph workflow not available. Check dependencies.")
     except Exception as e:
         print(f"❌ Error generating video: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to generate video: {str(e)}")

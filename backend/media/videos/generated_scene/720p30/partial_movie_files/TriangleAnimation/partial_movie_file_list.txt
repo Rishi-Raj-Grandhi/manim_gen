@@ -1,5 +1,0 @@
-# This file is used internally by FFMPEG.
-file 'file:C:/Users/Pavan Shiva/OneDrive/Desktop/proj/manim_gen/backend/media/videos/generated_scene/720p30/partial_movie_files/TriangleAnimation/2016333726_3644200010_223132457.mp4'
-file 'file:C:/Users/Pavan Shiva/OneDrive/Desktop/proj/manim_gen/backend/media/videos/generated_scene/720p30/partial_movie_files/TriangleAnimation/543634251_3890345977_587069701.mp4'
-file 'file:C:/Users/Pavan Shiva/OneDrive/Desktop/proj/manim_gen/backend/media/videos/generated_scene/720p30/partial_movie_files/TriangleAnimation/543634251_1533192559_3594592133.mp4'
-file 'file:C:/Users/Pavan Shiva/OneDrive/Desktop/proj/manim_gen/backend/media/videos/generated_scene/720p30/partial_movie_files/TriangleAnimation/543634251_3890345977_1071484169.mp4'

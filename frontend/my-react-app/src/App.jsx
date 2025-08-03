@@ -77,13 +77,33 @@ function App() {
       setTimeout(async () => {
         await fetchVideos()
         
+        // Get the updated videos list and find the newly generated video
+        const updatedVideosResponse = await axios.get(`${API_BASE_URL}/api/videos?t=${Date.now()}`)
+        const updatedVideos = updatedVideosResponse.data
+        
+        console.log('🔍 Looking for video:', generatedFilename)
+        console.log('📹 Available videos:', updatedVideos.map(v => v.name))
+        
         // Find and select the newly generated video
-        const newVideo = videos.find(video => video.name === generatedFilename)
+        const newVideo = updatedVideos.find(video => video.name === generatedFilename)
         if (newVideo) {
+          console.log('✅ Found new video:', newVideo)
           setSelectedVideo(newVideo)
           setGenerationStatus(`🎬 New video "${generatedFilename}" is now playing!`)
         } else {
+          console.log('❌ Video not found in list')
           setGenerationStatus('✅ Video generated! Check the recent videos list.')
+          
+          // Try to find any video with similar name pattern
+          const similarVideo = updatedVideos.find(video => 
+            video.name.includes(generatedFilename.split('_')[0]) || 
+            video.name.includes(generatedFilename.split('_')[1])
+          )
+          if (similarVideo) {
+            console.log('🎯 Found similar video:', similarVideo)
+            setSelectedVideo(similarVideo)
+            setGenerationStatus(`🎬 Found similar video "${similarVideo.name}" is now playing!`)
+          }
         }
         
         setPrompt('')
@@ -92,7 +112,7 @@ function App() {
         setTimeout(() => {
           setGenerationStatus('')
         }, 5000)
-      }, 2000)
+      }, 3000) // Increased timeout to 3 seconds
 
     } catch (err) {
       console.error('Error generating video:', err)
@@ -194,6 +214,18 @@ function App() {
                   {generationStatus}
                 </div>
               )}
+              
+              {/* Debug info */}
+              {process.env.NODE_ENV === 'development' && (
+                <div className="debug-info">
+                  <details>
+                    <summary>🔧 Debug Info</summary>
+                    <p><strong>Videos found:</strong> {videos.length}</p>
+                    <p><strong>Selected video:</strong> {selectedVideo?.name || 'None'}</p>
+                    <p><strong>System status:</strong> {systemStatus?.status || 'Unknown'}</p>
+                  </details>
+                </div>
+              )}
             </div>
           </div>
 
@@ -289,9 +321,14 @@ function App() {
 
       <footer className="app-footer">
         <p>Powered by Manim + LangGraph + OpenAI</p>
-        <button onClick={fetchVideos} className="refresh-btn">
-          🔄 Refresh Videos
-        </button>
+        <div className="footer-buttons">
+          <button onClick={fetchVideos} className="refresh-btn">
+            🔄 Refresh Videos
+          </button>
+          <button onClick={checkSystemStatus} className="refresh-btn">
+            🔍 Check Status
+          </button>
+        </div>
       </footer>
     </div>
   )

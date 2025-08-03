@@ -1,4 +1,0 @@
-# This file is used internally by FFMPEG.
-file 'file:C:/Users/Pavan Shiva/OneDrive/Desktop/proj/manim_gen/backend/media/videos/generated_scene/720p30/media/videos/generated_scene/720p30/partial_movie_files/RectangleAnimation/2016333726_4002736454_223132457.mp4'
-file 'file:C:/Users/Pavan Shiva/OneDrive/Desktop/proj/manim_gen/backend/media/videos/generated_scene/720p30/media/videos/generated_scene/720p30/partial_movie_files/RectangleAnimation/543634251_3890345977_202456481.mp4'
-file 'file:C:/Users/Pavan Shiva/OneDrive/Desktop/proj/manim_gen/backend/media/videos/generated_scene/720p30/media/videos/generated_scene/720p30/partial_movie_files/RectangleAnimation/543634251_3058995328_3876520661.mp4'

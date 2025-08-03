@@ -19,11 +19,13 @@ A 2D animation video generator that creates Manim code using OpenAI and runs it 
 manim_gen/
 ├── backend/
 │   ├── langraphdir/          # LangGraph workflow
+│   │   └── langchain_runner.py
 │   ├── media/               # Generated videos
 │   │   └── videos/
 │   │       └── generated_scene/
 │   │           └── 720p30/
 │   ├── server.py            # FastAPI server for serving videos
+│   ├── setup_media.py       # Media folder setup script
 │   └── requirements.txt     # Python dependencies
 ├── frontend/
 │   └── my-react-app/       # React video player
@@ -39,14 +41,23 @@ cd backend
 pip install -r requirements.txt
 ```
 
-### 2. Install Frontend Dependencies
+### 2. Set Up Media Folder Structure
+
+```bash
+cd backend
+python setup_media.py
+```
+
+This will create the necessary media folders and test video generation.
+
+### 3. Install Frontend Dependencies
 
 ```bash
 cd frontend/my-react-app
 npm install
 ```
 
-### 3. Start the Backend Server
+### 4. Start the Backend Server
 
 ```bash
 cd backend
@@ -55,7 +66,7 @@ python server.py
 
 The server will run on `http://localhost:8000` and serve videos from the `backend/media` folder.
 
-### 4. Start the React App
+### 5. Start the React App
 
 ```bash
 cd frontend/my-react-app

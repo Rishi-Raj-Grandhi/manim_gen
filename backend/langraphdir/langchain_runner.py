@@ -73,13 +73,24 @@ def render_node(state):
     print(f"🔍 Backend directory: {backend_dir}")
     print(f"📁 Media directory: {media_dir}")
     
-    # Create media directory if it doesn't exist
+    # Create complete media directory structure if it doesn't exist
     os.makedirs(media_dir, exist_ok=True)
     print(f"✅ Media directory created/exists: {os.path.exists(media_dir)}")
     
+    # Also create parent directories to ensure full structure exists
+    parent_dirs = [
+        os.path.join(backend_dir, "media"),
+        os.path.join(backend_dir, "media", "videos"),
+        os.path.join(backend_dir, "media", "videos", "generated_scene")
+    ]
+    
+    for parent_dir in parent_dirs:
+        os.makedirs(parent_dir, exist_ok=True)
+        print(f"✅ Created parent directory: {parent_dir}")
+    
     # Generate unique filename based on timestamp and prompt
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    prompt_hash = str(hash(state["prompt"]))[-8:]  # Last 8 chars of hash
+    prompt_hash = str(abs(hash(state["prompt"])))[-8:]  # Last 8 chars of hash (abs to handle negative)
     unique_filename = f"video_{timestamp}_{prompt_hash}"
     
     # Save to file with UTF-8 encoding in the media directory
@@ -142,7 +153,10 @@ def revise_prompt_node(state):
     return state
 
 def format_json_node(state):
-    return { "code": state["verified_code"] }
+    return { 
+        "code": state["verified_code"],
+        "generated_filename": state.get("generated_filename", "output.mp4")
+    }
 
 # Step 5: LangGraph Flow
 
