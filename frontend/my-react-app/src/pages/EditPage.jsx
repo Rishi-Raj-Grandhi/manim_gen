@@ -1,11 +1,13 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
+import { useTrimContext } from '../contexts/TrimContext'
 
 function EditPage() {
   const navigate = useNavigate()
   const videoRef = useRef(null)
   const canvasRef = useRef(null)
+  const { getVideoTrims, setVideoTrimsForVideo, updateVideoTrims, getAllTrims } = useTrimContext()
 
   // Video list state
   const [videos, setVideos] = useState([])
@@ -60,17 +62,33 @@ function EditPage() {
 
   // Update duration and trim when video changes
   useEffect(() => {
-    if (videoRef.current) {
+    if (videoRef.current && selectedVideo) {
       videoRef.current.load()
       videoRef.current.onloadedmetadata = () => {
-        setDuration(videoRef.current.duration)
-        setTrimEnd(videoRef.current.duration)
-        setTrimStart(0)
-        setTrimStartHandle(0)
-        setTrimEndHandle(100)
+        const videoDuration = videoRef.current.duration
+        setDuration(videoDuration)
+        
+        // Load persistent trim values for this video
+        const savedTrims = getVideoTrims(selectedVideo.name)
+        if (savedTrims.start === 0 && savedTrims.end === 0) {
+          // No saved trims, set defaults and save them
+          setTrimStart(0)
+          setTrimEnd(videoDuration)
+          setTrimStartHandle(0)
+          setTrimEndHandle(100)
+          
+          // Save the default trim values for this video
+          setVideoTrimsForVideo(selectedVideo.name, { start: 0, end: videoDuration })
+        } else {
+          // Use saved trim values
+          setTrimStart(savedTrims.start)
+          setTrimEnd(savedTrims.end)
+          setTrimStartHandle((savedTrims.start / videoDuration) * 100)
+          setTrimEndHandle((savedTrims.end / videoDuration) * 100)
+        }
       }
     }
-  }, [selectedVideo])
+  }, [selectedVideo, getVideoTrims])
 
   useEffect(() => {
     const video = videoRef.current
@@ -148,13 +166,25 @@ function EditPage() {
   const handleTrimStartChange = (e) => {
     const newStart = parseFloat(e.target.value)
     setTrimStartHandle(newStart)
-    setTrimStart((newStart / 100) * duration)
+    const newStartTime = (newStart / 100) * duration
+    setTrimStart(newStartTime)
+    
+    // Save trim values persistently - save both start and end together
+    if (selectedVideo) {
+      setVideoTrimsForVideo(selectedVideo.name, { start: newStartTime, end: trimEnd })
+    }
   }
 
   const handleTrimEndChange = (e) => {
     const newEnd = parseFloat(e.target.value)
     setTrimEndHandle(newEnd)
-    setTrimEnd((newEnd / 100) * duration)
+    const newEndTime = (newEnd / 100) * duration
+    setTrimEnd(newEndTime)
+    
+    // Save trim values persistently - save both start and end together
+    if (selectedVideo) {
+      setVideoTrimsForVideo(selectedVideo.name, { start: trimStart, end: newEndTime })
+    }
   }
 
   const applyEffect = (effectType) => {
@@ -192,44 +222,76 @@ function EditPage() {
     }
     
     try {
-      // Prepare effects data
-      const effects = {
-        brightness: brightness,
-        contrast: contrast,
-        saturation: saturation,
-        blur: blur,
-        effect: selectedEffect
+      // Get all videos and their trim values
+      const allTrims = getAllTrims()
+      console.log('All available trims:', allTrims)
+      console.log('All videos:', videos.map(v => v.name))
+      
+      const videosToMerge = []
+      const trimsToMerge = []
+      
+      // Add the currently selected video with its trim values
+      videosToMerge.push(selectedVideo.name)
+      trimsToMerge.push({
+        start: trimStart,
+        end: trimEnd
+      })
+      
+      // Add other videos that have trim values set
+      videos.forEach(video => {
+        if (video.name !== selectedVideo.name && allTrims[video.name]) {
+          const videoTrims = allTrims[video.name]
+          // Include any video that has been loaded and has trim values
+          // This will include videos with default trims (start=0, end=duration) as well as custom trims
+          console.log(`Adding video ${video.name} with trims:`, videoTrims)
+          videosToMerge.push(video.name)
+          trimsToMerge.push({
+            start: videoTrims.start,
+            end: videoTrims.end
+          })
+        }
+      })
+      
+      if (videosToMerge.length === 0) {
+        alert('No videos with trim values found. Please set trim values for at least one video.')
+        return
       }
       
-      // Call backend API to process video
-      const response = await axios.post(`${API_BASE_URL}/api/process-video`, {
-        video_name: selectedVideo.name,
-        trim_start: trimStart,
-        trim_end: trimEnd,
-        effects: effects,
-        export_format: 'mp4',
-        export_quality: '720p'
+      console.log('Merging videos:', videosToMerge)
+      console.log('With trims:', trimsToMerge)
+      
+      // Call the merge API
+      const response = await axios.post(`${API_BASE_URL}/api/merge`, {
+        videos: videosToMerge,
+        trims: trimsToMerge
       })
       
       if (response.data.status === 'success') {
-        // Navigate to preview page with processed video data
+        // Navigate to preview page with merged video data
         navigate('/preview', {
           state: {
-            selectedVideo: response.data,
-            trimData: {
-              start: trimStart,
-              end: trimEnd,
-              duration: trimEnd - trimStart
+            selectedVideo: {
+              name: `Merged Video (${videosToMerge.length} clips)`,
+              url: response.data.mergedVideo,
+              isMerged: true
             },
-            processedVideo: response.data
+            trimData: {
+              start: 0,
+              end: 0,
+              duration: 0,
+              isMerged: true
+            },
+            mergedVideo: response.data,
+            originalVideos: videosToMerge,
+            originalTrims: trimsToMerge
           }
         })
       } else {
-        alert('Failed to process video')
+        alert('Failed to merge videos')
       }
     } catch (error) {
-      console.error('Error processing video:', error)
-      alert('Error processing video. Please try again.')
+      console.error('Error merging videos:', error)
+      alert('Error merging videos. Please try again.')
     }
   }
 
@@ -272,28 +334,48 @@ function EditPage() {
             {videos.length === 0 ? (
               <span style={{ color: '#888' }}>No videos available</span>
             ) : (
-              videos.map((video, idx) => (
-                <div
-                  key={video.name}
-                  onClick={() => setSelectedVideo(video)}
-                  style={{
-                    border: selectedVideo && selectedVideo.name === video.name ? '2px solid #007bff' : '2px solid transparent',
-                    borderRadius: '8px',
-                    padding: '4px',
-                    cursor: 'pointer',
-                    background: selectedVideo && selectedVideo.name === video.name ? '#e7f1ff' : 'transparent',
-                    display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '90px'
-                  }}
-                  title={video.name}
-                >
-                  <video
-                    src={`${API_BASE_URL}${video.url}`}
-                    style={{ width: '80px', height: '48px', objectFit: 'cover', borderRadius: '4px', marginBottom: '4px' }}
-                    muted
-                  />
-                  <span style={{ fontSize: '11px', color: '#333', textAlign: 'center', maxWidth: '80px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{video.name}</span>
-                </div>
-              ))
+              videos.map((video, idx) => {
+                const videoTrims = getVideoTrims(video.name)
+                const hasTrims = videoTrims.start !== 0 || videoTrims.end !== 0
+                
+                return (
+                  <div
+                    key={video.name}
+                    onClick={() => setSelectedVideo(video)}
+                    style={{
+                      border: selectedVideo && selectedVideo.name === video.name ? '2px solid #007bff' : '2px solid transparent',
+                      borderRadius: '8px',
+                      padding: '4px',
+                      cursor: 'pointer',
+                      background: selectedVideo && selectedVideo.name === video.name ? '#e7f1ff' : 'transparent',
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '90px',
+                      position: 'relative'
+                    }}
+                    title={`${video.name}${hasTrims ? ` (Trim: ${videoTrims.start.toFixed(1)}s - ${videoTrims.end.toFixed(1)}s)` : ''}`}
+                  >
+                    <video
+                      src={`${API_BASE_URL}${video.url}`}
+                      style={{ width: '80px', height: '48px', objectFit: 'cover', borderRadius: '4px', marginBottom: '4px' }}
+                      muted
+                    />
+                    <span style={{ fontSize: '11px', color: '#333', textAlign: 'center', maxWidth: '80px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{video.name}</span>
+                    {hasTrims && (
+                      <div style={{
+                        position: 'absolute',
+                        top: '-2px',
+                        right: '-2px',
+                        width: '12px',
+                        height: '12px',
+                        backgroundColor: '#28a745',
+                        borderRadius: '50%',
+                        border: '2px solid white'
+                      }}
+                      title="Has trim values set"
+                      />
+                    )}
+                  </div>
+                )
+              })
             )}
           </div>
 
@@ -437,22 +519,94 @@ function EditPage() {
           <div style={{ backgroundColor: 'white', borderRadius: '10px', padding: '20px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
             <h3 style={{ margin: '0 0 15px 0', color: '#333' }}>Merge & Preview</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                              <div>
-                  <label style={{ fontSize: '12px', display: 'block', marginBottom: '5px' }}>Trim Range: {formatTime(trimStart)} - {formatTime(trimEnd)}</label>
-                  <div style={{ padding: '8px', backgroundColor: '#f8f9fa', borderRadius: '5px', fontSize: '12px', color: '#666' }}>Duration: {formatTime(trimEnd - trimStart)}</div>
-                </div>
+              <div>
+                <label style={{ fontSize: '12px', display: 'block', marginBottom: '5px' }}>Current Video Trim: {formatTime(trimStart)} - {formatTime(trimEnd)}</label>
+                <div style={{ padding: '8px', backgroundColor: '#f8f9fa', borderRadius: '5px', fontSize: '12px', color: '#666' }}>Duration: {formatTime(trimEnd - trimStart)}</div>
+              </div>
+              
+              {/* Merge Summary */}
+              {(() => {
+                const allTrims = getAllTrims()
+                const videosWithTrims = videos.filter(video => {
+                  const trims = allTrims[video.name]
+                  return trims && (trims.start !== 0 || trims.end !== 0)
+                })
                 
-                <div style={{ padding: '10px', backgroundColor: '#e7f3ff', borderRadius: '5px', border: '1px solid #b3d9ff' }}>
-                  <div style={{ fontSize: '12px', color: '#0066cc', marginBottom: '5px' }}>
-                    <strong>Preview Info:</strong>
-                  </div>
-                  <div style={{ fontSize: '11px', color: '#666' }}>
-                    • Trim Range: {formatTime(trimStart)} - {formatTime(trimEnd)}<br/>
-                    • Duration: {formatTime(trimEnd - trimStart)}<br/>
-                    • Click "Merge and Preview" to see the result
-                  </div>
+                if (videosWithTrims.length > 0) {
+                  return (
+                    <div style={{ padding: '10px', backgroundColor: '#fff3cd', borderRadius: '5px', border: '1px solid #ffeaa7' }}>
+                      <div style={{ fontSize: '12px', color: '#856404', marginBottom: '8px' }}>
+                        <strong>📹 Videos to Merge ({videosWithTrims.length}):</strong>
+                      </div>
+                      <div style={{ fontSize: '11px', color: '#666', maxHeight: '100px', overflowY: 'auto' }}>
+                        {videosWithTrims.map(video => {
+                          const trims = allTrims[video.name]
+                          return (
+                            <div key={video.name} style={{ marginBottom: '4px', padding: '4px', backgroundColor: '#fff', borderRadius: '3px' }}>
+                              <strong>{video.name}</strong>: {formatTime(trims.start)} - {formatTime(trims.end)} ({formatTime(trims.end - trims.start)})
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )
+                }
+                return null
+              })()}
+              
+              <div style={{ padding: '10px', backgroundColor: '#e7f3ff', borderRadius: '5px', border: '1px solid #b3d9ff' }}>
+                <div style={{ fontSize: '12px', color: '#0066cc', marginBottom: '5px' }}>
+                  <strong>Merge Info:</strong>
                 </div>
-                              <button onClick={handleMergeAndPreview} style={{ backgroundColor: '#007bff', color: 'white', padding: '12px 20px', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '16px', fontWeight: 'bold', width: '100%' }}>🎬 Merge and Preview</button>
+                <div style={{ fontSize: '11px', color: '#666' }}>
+                  • Videos with trim values will be merged in order<br/>
+                  • Each video will be trimmed according to its settings<br/>
+                  • Click "Merge and Preview" to see the result
+                </div>
+              </div>
+              
+              {/* Debug Button */}
+              <button 
+                onClick={() => {
+                  const allTrims = getAllTrims()
+                  console.log('=== DEBUG: Current Trim State ===')
+                  console.log('All trims:', allTrims)
+                  console.log('All videos:', videos.map(v => v.name))
+                  console.log('Selected video:', selectedVideo?.name)
+                  console.log('Current trim values:', { start: trimStart, end: trimEnd })
+                  console.log('================================')
+                }} 
+                style={{ 
+                  backgroundColor: '#6c757d', 
+                  color: 'white', 
+                  padding: '8px 16px', 
+                  border: 'none', 
+                  borderRadius: '5px', 
+                  cursor: 'pointer', 
+                  fontSize: '12px', 
+                  width: '100%',
+                  marginBottom: '10px'
+                }}
+              >
+                🔍 Debug Trim State
+              </button>
+              
+              <button 
+                onClick={handleMergeAndPreview} 
+                style={{ 
+                  backgroundColor: '#007bff', 
+                  color: 'white', 
+                  padding: '12px 20px', 
+                  border: 'none', 
+                  borderRadius: '8px', 
+                  cursor: 'pointer', 
+                  fontSize: '16px', 
+                  fontWeight: 'bold', 
+                  width: '100%' 
+                }}
+              >
+                🎬 Merge and Preview
+              </button>
             </div>
           </div>
         </div>

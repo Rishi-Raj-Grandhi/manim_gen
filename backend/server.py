@@ -17,7 +17,7 @@ import json
 # Add the langraphdir to the Python path
 langraphdir_path = pathlib.Path(__file__).parent / "langraphdir"
 sys.path.append(str(langraphdir_path))
-
+print("PYTHON EXECUTABLE:", sys.executable)
 app = FastAPI(
     title="Manim Video Generator API",
     description="API for serving Manim generated videos with editing capabilities",
@@ -56,6 +56,10 @@ class VideoExportRequest(BaseModel):
     effects: Dict[str, Any]
     export_format: str = "mp4"
     export_quality: str = "720p"
+
+class VideoMergeRequest(BaseModel):
+    videos: List[str]
+    trims: List[Dict[str, float]]
 
 # API endpoint to get list of videos
 @app.get("/api/videos", response_model=List[Dict[str, Any]])
@@ -465,6 +469,48 @@ async def export_video(request: VideoExportRequest):
         print(f"❌ Error exporting video: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to export video: {str(e)}")
 
+# Video merge endpoint
+@app.post("/api/merge")
+async def merge_videos(request: VideoMergeRequest):
+    """Merge multiple videos with trim values applied"""
+    try:
+        print(f"🎬 Starting video merge for {len(request.videos)} videos")
+        
+        # Validate request
+        if len(request.videos) != len(request.trims):
+            raise HTTPException(status_code=400, detail="Number of videos must match number of trim objects")
+        
+        if not request.videos:
+            raise HTTPException(status_code=400, detail="At least one video must be provided")
+        
+        # Import the merge functionality
+        from editmerge import merge_videos as merge_videos_func
+        
+        # Call the merge function
+        merged_video_url = merge_videos_func(
+            videos=request.videos,
+            trims=request.trims,
+            media_path=str(media_path),
+            use_ffmpeg=True  # Use ffmpeg for better performance
+        )
+        
+        print(f"✅ Video merge completed successfully: {merged_video_url}")
+        
+        return {
+            "status": "success",
+            "message": "Videos merged successfully",
+            "mergedVideo": merged_video_url,
+            "videos_processed": len(request.videos),
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except ImportError as e:
+        print(f"❌ Import error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Video merge functionality not available. Check dependencies.")
+    except Exception as e:
+        print(f"❌ Error merging videos: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to merge videos: {str(e)}")
+
 # Health check endpoint
 @app.get("/health")
 async def health_check():
@@ -505,6 +551,7 @@ async def root():
         "endpoints": {
             "videos": "/api/videos",
             "video_info": "/api/videos/{filename}",
+            "merge": "/api/merge",
             "health": "/health",
             "media": "/media/*"
         }

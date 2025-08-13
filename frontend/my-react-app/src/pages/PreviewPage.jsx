@@ -8,7 +8,7 @@ function PreviewPage() {
   const videoRef = useRef(null)
   
   // Get trim data from location state
-  const { trimData, selectedVideo } = location.state || {}
+  const { trimData, selectedVideo, mergedVideo, originalVideos, originalTrims } = location.state || {}
   
   // Video state
   const [currentTime, setCurrentTime] = useState(0)
@@ -31,15 +31,25 @@ function PreviewPage() {
   const API_BASE_URL = 'http://localhost:8000'
 
   useEffect(() => {
-    if (!selectedVideo || !trimData) {
-      setError('No video or trim data provided')
+    if (!selectedVideo) {
+      setError('No video provided')
       setIsLoading(false)
       return
     }
 
-    // Simulate video processing with trim values
-    generatePreview()
-  }, [selectedVideo, trimData])
+    // Handle merged video or regular video
+    if (mergedVideo && selectedVideo.isMerged) {
+      // This is a merged video
+      setPreviewUrl(`${API_BASE_URL}${selectedVideo.url}`)
+      setIsLoading(false)
+    } else if (trimData) {
+      // This is a regular video with trim data
+      generatePreview()
+    } else {
+      setError('No trim data provided')
+      setIsLoading(false)
+    }
+  }, [selectedVideo, trimData, mergedVideo])
 
   const generatePreview = async () => {
     try {
@@ -235,8 +245,15 @@ function PreviewPage() {
         boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
       }}>
         <div>
-          <h1 style={{ margin: 0, color: '#333' }}>🎬 Video Preview</h1>
-          <p style={{ margin: '5px 0 0 0', color: '#666' }}>Preview merged video with trim values applied</p>
+          <h1 style={{ margin: 0, color: '#333' }}>
+            {selectedVideo?.isMerged ? '🎬 Merged Video Preview' : '🎬 Video Preview'}
+          </h1>
+          <p style={{ margin: '5px 0 0 0', color: '#666' }}>
+            {selectedVideo?.isMerged 
+              ? `Preview of merged video (${originalVideos?.length || 0} clips)` 
+              : 'Preview merged video with trim values applied'
+            }
+          </p>
         </div>
         <div style={{ display: 'flex', gap: '10px' }}>
           <button 
@@ -401,6 +418,87 @@ function PreviewPage() {
               </div>
             </div>
           </div>
+
+          {/* Merge Details - Only show for merged videos */}
+          {selectedVideo?.isMerged && originalVideos && originalTrims && (
+            <div style={{
+              backgroundColor: 'white',
+              borderRadius: '10px',
+              padding: '20px',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+            }}>
+              <h3 style={{ margin: '0 0 15px 0', color: '#333' }}>🎬 Merge Details</h3>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                <div style={{
+                  padding: '15px',
+                  backgroundColor: '#e7f3ff',
+                  borderRadius: '8px',
+                  border: '1px solid #b3d9ff'
+                }}>
+                  <div style={{ fontSize: '14px', color: '#0066cc', marginBottom: '8px' }}>
+                    <strong>📊 Merge Summary</strong>
+                  </div>
+                  <div style={{ fontSize: '13px', color: '#333' }}>
+                    • Total Clips: {originalVideos.length}<br/>
+                    • Total Duration: {formatTime(duration)}<br/>
+                    • Merge Method: FFmpeg (Optimized)
+                  </div>
+                </div>
+                
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <h4 style={{ margin: '0 0 10px 0', color: '#555', fontSize: '16px' }}>Individual Clips:</h4>
+                  
+                  {originalVideos.map((videoName, index) => {
+                    const trim = originalTrims[index]
+                    const clipDuration = trim ? trim.end - trim.start : 0
+                    
+                    return (
+                      <div key={index} style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        padding: '12px',
+                        backgroundColor: '#f8f9fa',
+                        borderRadius: '6px',
+                        border: '1px solid #e9ecef'
+                      }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          <span style={{ fontWeight: 'bold', fontSize: '14px', color: '#333' }}>
+                            {index + 1}. {videoName}
+                          </span>
+                          <span style={{ fontSize: '12px', color: '#666' }}>
+                            Trim: {formatTime(trim?.start || 0)} - {formatTime(trim?.end || 0)}
+                          </span>
+                        </div>
+                        <div style={{
+                          padding: '6px 12px',
+                          backgroundColor: '#28a745',
+                          color: 'white',
+                          borderRadius: '15px',
+                          fontSize: '12px',
+                          fontWeight: 'bold'
+                        }}>
+                          {formatTime(clipDuration)}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+                
+                <div style={{
+                  padding: '12px',
+                  backgroundColor: '#fff3cd',
+                  borderRadius: '6px',
+                  border: '1px solid #ffeaa7',
+                  fontSize: '12px',
+                  color: '#856404'
+                }}>
+                  <strong>💡 Note:</strong> This merged video combines {originalVideos.length} individual clips with their respective trim values applied. Each clip maintains its original quality and timing.
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Right Column - Export Options */}
