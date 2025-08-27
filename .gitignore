@@ -1,0 +1,13 @@
+node_modules/
+.env
+.env.*
+__pycache__/
+*.pyc
+static/
+audio/
+*.mp4
+*.log
+backend/langraphdir/media/texts/
+backend/langraphdir/media/images/
+backend/langraphdir/media/Tex/
+backend/langraphdir/media/videos/
