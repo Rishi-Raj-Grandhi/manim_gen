@@ -62,3 +62,10 @@ def presign_key(key: str, expires: int = 3600) -> str:
         Params={"Bucket": S3_BUCKET, "Key": key},
         ExpiresIn=expires,
     )
+
+
+def delete_key(key: str) -> None:
+    """Delete an object from S3 by key."""
+    if not S3_BUCKET:
+        raise RuntimeError("S3_BUCKET env not set")
+    _s3.delete_object(Bucket=S3_BUCKET, Key=key)

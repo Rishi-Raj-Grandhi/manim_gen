@@ -4,7 +4,7 @@ import pathlib
 from dotenv import load_dotenv
 load_dotenv(dotenv_path=pathlib.Path(__file__).parent / ".env")
 from fastapi import Query
-from services.s3_uploader import presign_key
+from services.s3_uploader import presign_key, delete_key
 
 
 from services.s3_uploader import upload_file
@@ -25,6 +25,7 @@ import shutil
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 import json
+import re
 
 # Add the langraphdir to the Python path
 langraphdir_path = pathlib.Path(__file__).parent / "langraphdir"
@@ -68,6 +69,10 @@ class VideoExportRequest(BaseModel):
     effects: Dict[str, Any]
     export_format: str = "mp4"
     export_quality: str = "720p"
+
+class MergeVideosRequest(BaseModel):
+    videos: List[str]
+    output_format: str = "mp4"
 
 # API endpoint to get list of videos
 @app.get("/api/videos", response_model=List[Dict[str, Any]])
@@ -194,9 +199,15 @@ async def generate_video(request: VideoGenerationRequest):
         generated_filename = result.get('generated_filename', 'output.mp4')
         print(f"📹 Generated video file: {generated_filename}")
 
-        # Compute S3 key (so frontend can refresh presigned URLs later)
+        # Compute a prompt-based friendly filename for S3
+        def slugify(text: str, max_words: int = 6) -> str:
+            words = re.findall(r"[A-Za-z0-9]+", text.lower())[:max_words]
+            return "-".join(words) or "video"
+        slug = slugify(request.prompt)
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        s3_filename = f"{slug}_{ts}.mp4"
         prefix = os.getenv("S3_PREFIX", "").strip("/")
-        s3_key = f"{prefix}/{generated_filename}" if prefix else generated_filename
+        s3_key = f"{prefix}/{s3_filename}" if prefix else s3_filename
 
         # Verify the video file exists and get correct path
         video_path = media_path / "videos" / "generated_scene" / "720p30" / generated_filename
@@ -233,7 +244,8 @@ async def generate_video(request: VideoGenerationRequest):
         )
         print("UPLOAD TRY:", str(video_path))
         try:
-            s3_url = upload_file(str(video_path))
+            # Upload using the friendly S3 filename
+            s3_url = upload_file(str(video_path), s3_filename=s3_filename)
             storage = "s3"
             print("UPLOAD OK:", s3_url)
         except Exception as e:
@@ -652,3 +664,107 @@ if __name__ == "__main__":
     print("📂 Video files stored in: backend/media/videos/generated_scene/720p30/")
     print("🔗 API docs available at: http://localhost:8000/docs")
     uvicorn.run(app, host="0.0.0.0", port=8000) 
+
+@app.delete("/api/video")
+def delete_video(
+    key: Optional[str] = Query(None, description="S3 object key to delete"),
+    name: Optional[str] = Query(None, description="Filename to delete under S3 prefix")
+):
+    try:
+        if not key and not name:
+            raise HTTPException(status_code=400, detail="Provide 'key' or 'name'")
+        if not key:
+            prefix = os.getenv("S3_PREFIX", "").strip("/")
+            key = f"{prefix}/{name}" if prefix else name
+        delete_key(key)
+        return {"status": "success", "deleted": key}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to delete: {e}")
+
+# Merge multiple videos endpoint
+@app.post("/api/merge-videos")
+async def merge_videos(request: MergeVideosRequest):
+    """Concatenate multiple videos in the given order using ffmpeg.
+
+    Accepts file names found under the generated media directories.
+    Produces a merged file in the main 720p30 directory and returns its URL.
+    """
+    try:
+        if not request.videos or len(request.videos) < 2:
+            raise HTTPException(status_code=400, detail="Provide at least two videos to merge")
+
+        # Resolve paths for each input video, supporting both main and nested layout
+        resolved_paths: List[pathlib.Path] = []
+        for name in request.videos:
+            # try main
+            p = media_path / "videos" / "generated_scene" / "720p30" / name
+            if not p.exists():
+                nested = media_path / "videos" / "generated_scene" / "720p30" / "media" / "videos"
+                found = None
+                if nested.exists():
+                    for folder in nested.iterdir():
+                        if folder.is_dir():
+                            candidate = folder / "720p30" / name
+                            if candidate.exists():
+                                found = candidate
+                                break
+                p = found if found else p
+            if not p or not p.exists():
+                raise HTTPException(status_code=404, detail=f"Video not found: {name}")
+            resolved_paths.append(p)
+
+        # Prepare concat using a temporary file list
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_dir_path = pathlib.Path(temp_dir)
+            list_file = temp_dir_path / "inputs.txt"
+            with open(list_file, "w", encoding="utf-8") as f:
+                for path in resolved_paths:
+                    # -safe 0 allows absolute paths
+                    f.write(f"file '{str(path).replace("'", "'\\''")}'\n")
+
+            out_name = f"merged_{int(datetime.now().timestamp())}.{request.output_format}"
+            out_path = temp_dir_path / out_name
+
+            # Use re-encode for broader compatibility
+            cmd = [
+                "ffmpeg", "-f", "concat", "-safe", "0", "-i", str(list_file),
+                "-c:v", "libx264", "-c:a", "aac", "-y", str(out_path)
+            ]
+            print("🔗 Merging videos:", [p.name for p in resolved_paths])
+            result = subprocess.run(cmd, capture_output=True, text=True)
+            if result.returncode != 0:
+                print("❌ FFmpeg merge error:", result.stderr)
+                raise HTTPException(status_code=500, detail=f"Merge failed: {result.stderr}")
+
+            final_name = out_name
+            final_path = media_path / "videos" / "generated_scene" / "720p30" / final_name
+            shutil.copy2(out_path, final_path)
+
+        # Try S3 upload similar to generation endpoint
+        try:
+            # Use a stable key name as produced file name
+            s3_url = upload_file(str(final_path), s3_filename=final_name)
+            storage = "s3"
+        except Exception as e:
+            print("S3 UPLOAD ERROR (merge):", repr(e))
+            s3_url = f"/media/videos/generated_scene/720p30/{final_name}"
+            storage = "local"
+
+        prefix = os.getenv("S3_PREFIX", "").strip("/")
+        s3_key = f"{prefix}/{final_name}" if prefix else final_name
+
+        return {
+            "status": "success",
+            "message": "Videos merged successfully",
+            "merged_video": final_name,
+            "video_url": s3_url,
+            "s3_key": s3_key,
+            "storage": storage,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error merging videos: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to merge videos: {str(e)}")
