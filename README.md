@@ -87,6 +87,9 @@ The React app will run on `http://localhost:5173` (or another port if 5173 is bu
 - `GET /api/videos` - Get list of all available videos
 - `GET /api/videos/:filename` - Get specific video information
 - `POST /api/generate` - Generate new video from prompt
+- `POST /api/process-video` - Process video with effects and trimming
+- `POST /api/export-video` - Export video with specific settings
+- `POST /api/cleanup` - Clean up generated videos (called by frontend)
 - `GET /media/*` - Serve video files directly
 - `GET /health` - Health check endpoint
 
@@ -117,6 +120,12 @@ The React app will run on `http://localhost:5173` (or another port if 5173 is bu
 - 📝 Clear error messages
 - 🚫 Graceful handling of missing videos
 
+### Cleanup & Maintenance
+- 🧹 Automatic cleanup when frontend dev server stops
+- 🗑️ Manual cleanup button in the UI
+- 📁 Organized media directory structure
+- 🔄 Graceful shutdown with signal handling
+
 ## Development
 
 ### Backend Development
@@ -128,7 +137,14 @@ uvicorn server:app --reload --host 0.0.0.0 --port 8000
 ### Frontend Development
 ```bash
 cd frontend/my-react-app
-npm run dev  # Vite dev server with HMR
+npm run dev  # Standard Vite dev server
+npm run dev:clean  # Vite dev server with automatic cleanup on stop
+```
+
+### Manual Cleanup
+```bash
+cd frontend/my-react-app
+npm run cleanup  # Manually trigger cleanup
 ```
 
 ## Technologies Used

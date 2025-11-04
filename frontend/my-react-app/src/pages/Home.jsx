@@ -12,6 +12,7 @@ function Home() {
   const [generating, setGenerating] = useState(false)
   const [generationStatus, setGenerationStatus] = useState('')
   const [systemStatus, setSystemStatus] = useState(null)
+  const [cleanupStatus, setCleanupStatus] = useState('')
 
   const navigate = useNavigate()
   const API_BASE_URL = 'http://localhost:8000'
@@ -135,6 +136,33 @@ function Home() {
     return new Date(dateString).toLocaleString()
   }
 
+  const handleCleanup = async () => {
+    if (!confirm('Are you sure you want to delete all generated videos? This action cannot be undone.')) {
+      return
+    }
+    
+    try {
+      setCleanupStatus('🧹 Cleaning up generated videos...')
+      const response = await axios.post(`${API_BASE_URL}/api/cleanup`)
+      
+      if (response.data.status === 'success') {
+        setCleanupStatus('✅ Cleanup completed successfully!')
+        // Refresh the video list
+        await fetchVideos()
+        
+        // Clear status after 3 seconds
+        setTimeout(() => {
+          setCleanupStatus('')
+        }, 3000)
+      } else {
+        setCleanupStatus('❌ Cleanup failed')
+      }
+    } catch (error) {
+      console.error('Error during cleanup:', error)
+      setCleanupStatus('❌ Error during cleanup. Please try again.')
+    }
+  }
+
   if (loading) {
     return (
       <div className="app">
@@ -231,7 +259,38 @@ function Home() {
           </div>
 
           <div className="recent-videos">
-            <h3>📹 Recent Videos ({videos.length})</h3>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+              <h3>📹 Recent Videos ({videos.length})</h3>
+              {videos.length > 0 && (
+                <button 
+                  onClick={handleCleanup}
+                  style={{
+                    backgroundColor: '#dc3545',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '5px',
+                    padding: '8px 12px',
+                    cursor: 'pointer',
+                    fontSize: '12px'
+                  }}
+                  title="Delete all generated videos"
+                >
+                  🗑️ Cleanup
+                </button>
+              )}
+            </div>
+            {cleanupStatus && (
+              <div style={{
+                padding: '10px',
+                backgroundColor: cleanupStatus.includes('✅') ? '#d4edda' : '#f8d7da',
+                color: cleanupStatus.includes('✅') ? '#155724' : '#721c24',
+                borderRadius: '5px',
+                marginBottom: '15px',
+                fontSize: '14px'
+              }}>
+                {cleanupStatus}
+              </div>
+            )}
             {videos.length === 0 ? (
               <div className="no-videos">
                 <p>No videos yet. Generate your first video!</p>
@@ -329,6 +388,24 @@ function Home() {
           <button onClick={checkSystemStatus} className="refresh-btn">
             🔍 Check Status
           </button>
+          {videos.length > 0 && (
+            <button 
+              onClick={handleCleanup}
+              style={{
+                backgroundColor: '#dc3545',
+                color: 'white',
+                padding: '10px 20px',
+                border: 'none',
+                borderRadius: '5px',
+                cursor: 'pointer',
+                fontSize: '16px',
+                marginLeft: '10px'
+              }}
+              title="Delete all generated videos"
+            >
+              🗑️ Cleanup Videos
+            </button>
+          )}
           <button 
             onClick={() => navigate('/edit')} 
             className="proceed-btn"

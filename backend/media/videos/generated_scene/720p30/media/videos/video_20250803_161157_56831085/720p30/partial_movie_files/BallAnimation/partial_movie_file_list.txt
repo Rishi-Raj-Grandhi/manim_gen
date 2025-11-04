@@ -1,3 +1,0 @@
-# This file is used internally by FFMPEG.
-file 'file:C:/Users/Pavan Shiva/OneDrive/Desktop/proj/manim_gen/backend/media/videos/generated_scene/720p30/media/videos/video_20250803_161157_56831085/720p30/partial_movie_files/BallAnimation/2016333726_72508408_223132457.mp4'
-file 'file:C:/Users/Pavan Shiva/OneDrive/Desktop/proj/manim_gen/backend/media/videos/generated_scene/720p30/media/videos/video_20250803_161157_56831085/720p30/partial_movie_files/BallAnimation/543634251_2951807366_3568124638.mp4'

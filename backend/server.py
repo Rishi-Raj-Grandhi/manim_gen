@@ -471,6 +471,61 @@ async def health_check():
     """Health check endpoint"""
     return {"status": "healthy", "timestamp": datetime.now().isoformat()}
 
+# Cleanup endpoint for frontend dev server
+@app.post("/api/cleanup")
+async def cleanup_media():
+    """Clean up all generated videos and media files when frontend stops"""
+    try:
+        print("🧹 Frontend requested cleanup - cleaning media folder...")
+        
+        # Define paths to clean up
+        videos_dir = media_path / "videos" / "generated_scene" / "720p30"
+        media_subdirs = [
+            videos_dir / "media" / "videos",
+            videos_dir / "media" / "images", 
+            videos_dir / "media" / "texts"
+        ]
+        
+        # Clean up main videos directory
+        if videos_dir.exists():
+            print(f"🗑️  Cleaning up videos directory: {videos_dir}")
+            for file in videos_dir.iterdir():
+                if file.is_file() and file.suffix.lower() in ['.mp4', '.avi', '.mov', '.py']:
+                    try:
+                        file.unlink()
+                        print(f"✅ Deleted: {file.name}")
+                    except Exception as e:
+                        print(f"❌ Failed to delete {file.name}: {e}")
+        
+        # Clean up nested media directories
+        for subdir in media_subdirs:
+            if subdir.exists():
+                print(f"🗑️  Cleaning up subdirectory: {subdir}")
+                try:
+                    shutil.rmtree(subdir)
+                    print(f"✅ Deleted directory: {subdir}")
+                except Exception as e:
+                    print(f"❌ Failed to delete directory {subdir}: {e}")
+        
+        # Clean up empty directories
+        try:
+            if (videos_dir / "media").exists() and not any((videos_dir / "media").iterdir()):
+                shutil.rmtree(videos_dir / "media")
+                print("✅ Deleted empty media directory")
+        except Exception as e:
+            print(f"❌ Failed to clean up empty directories: {e}")
+        
+        print("✅ Media cleanup completed successfully")
+        return {
+            "status": "success",
+            "message": "Media folder cleared after frontend stop",
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        print(f"❌ Error during cleanup: {e}")
+        raise HTTPException(status_code=500, detail=f"Cleanup failed: {str(e)}")
+
 # Check if LangGraph workflow is available
 @app.get("/api/status")
 async def get_status():

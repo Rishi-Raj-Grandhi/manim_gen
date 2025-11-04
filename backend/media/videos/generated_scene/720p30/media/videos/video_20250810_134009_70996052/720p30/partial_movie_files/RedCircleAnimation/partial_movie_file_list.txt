@@ -1,4 +1,0 @@
-# This file is used internally by FFMPEG.
-file 'file:E:/manim_gen/backend/media/videos/generated_scene/720p30/media/videos/video_20250810_134009_70996052/720p30/partial_movie_files/RedCircleAnimation/2016333726_820870537_223132457.mp4'
-file 'file:E:/manim_gen/backend/media/videos/generated_scene/720p30/media/videos/video_20250810_134009_70996052/720p30/partial_movie_files/RedCircleAnimation/543634251_3890345977_3730347147.mp4'
-file 'file:E:/manim_gen/backend/media/videos/generated_scene/720p30/media/videos/video_20250810_134009_70996052/720p30/partial_movie_files/RedCircleAnimation/543634251_2112321937_1407115060.mp4'

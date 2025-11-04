@@ -5,9 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:clean": "node start-with-cleanup.js",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "cleanup": "node cleanup.js"
   },
   "dependencies": {
     "axios": "^1.6.0",
