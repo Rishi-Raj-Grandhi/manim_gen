@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  manim-gen:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - MANIM_QUALITY=720p30
+      - MANIM_FRAME_RATE=30
+    volumes:
+      - ./backend/media:/app/backend/media
+      - ./backend/.env:/app/backend/.env
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s 

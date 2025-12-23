@@ -12,5 +12,5 @@ class BallCollision(Scene):
         self.play(red_ball.animate.scale(0.2).stretch(2, 0), blue_ball.animate.scale(0.2).stretch(2, 0))
         self.wait(0.5)
         
-        self.play(red_ball.animate.scale(0.5).stretch(0.5, 2), blue_ball.animate.scale(0.5).stretch(0.5, 2))
+        self.play(red_ball.animate.scale(0.5).stretch(0.5, 0), blue_ball.animate.scale(0.5).stretch(0.5, 0))
         self.wait(0.5)
